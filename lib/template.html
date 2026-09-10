@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Strict CSP: only our own nonce'd script may run (blocks injected inline
+     handlers like <img onerror>), no network fetch/XHR/websocket (connect-src
+     none), images only from the institution origin, no plugins/frames. This
+     neutralises any active content that slips in via embedded Canvas HTML. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-__CSP_NONCE__'; style-src 'unsafe-inline'; img-src __IMG_SRC__ data: blob:; font-src data:; media-src __IMG_SRC__ data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+<title>Canvas-arkisto</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1a1d21; --muted: #616a75;
+    --line: #e3e6ea; --accent: #3b6cff; --accent-soft: #eaf0ff;
+    --ok: #1a7f4b; --warn: #b26a00; --bad: #c0392b; --chip: #eef1f4;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 2px 8px rgba(0,0,0,.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171b; --panel: #1c2026; --ink: #e6e9ee; --muted: #99a2ad;
+      --line: #2a2f37; --accent: #6f97ff; --accent-soft: #1f2836;
+      --ok: #4cc98a; --warn: #e0a54a; --bad: #f07567; --chip: #262b33;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 2px 10px rgba(0,0,0,.25);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .app { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+  aside { background: var(--panel); border-right: 1px solid var(--line);
+    padding: 18px 14px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  aside h1 { font-size: 16px; margin: 0 0 2px; letter-spacing: .2px; }
+  aside .sub { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+  .search { width: 100%; padding: 8px 10px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--bg); color: var(--ink); margin-bottom: 12px; }
+  nav a { display: flex; justify-content: space-between; align-items: center;
+    gap: 8px; padding: 7px 10px; border-radius: 8px; color: var(--ink);
+    cursor: pointer; font-size: 14px; }
+  nav a:hover { background: var(--accent-soft); text-decoration: none; }
+  nav a.active { background: var(--accent); color: #fff; }
+  nav a.active .count { background: rgba(255,255,255,.25); color: #fff; }
+  nav .count { background: var(--chip); color: var(--muted); font-size: 12px;
+    padding: 1px 7px; border-radius: 999px; }
+  nav .group { color: var(--muted); font-size: 11px; text-transform: uppercase;
+    letter-spacing: .6px; margin: 16px 0 6px 10px; }
+  main { padding: 26px 32px; max-width: 1000px; }
+  .freshness { font-size: 12px; color: var(--muted); margin-bottom: 18px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-right: 6px; vertical-align: middle; }
+  h2.view-title { margin: 0 0 4px; font-size: 22px; }
+  .view-sub { color: var(--muted); margin: 0 0 20px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px; margin-bottom: 24px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; box-shadow: var(--shadow); }
+  .stat .n { font-size: 26px; font-weight: 650; }
+  .stat .l { color: var(--muted); font-size: 13px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .card h3 { margin: 0 0 4px; font-size: 16px; }
+  .card .meta { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+  .row { display: flex; justify-content: space-between; align-items: baseline;
+    gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .row .t { flex: 1; }
+  .row .t small { color: var(--muted); }
+  .badge { font-size: 12px; padding: 2px 9px; border-radius: 999px;
+    white-space: nowrap; background: var(--chip); color: var(--muted); }
+  .badge.ok { background: rgba(26,127,75,.14); color: var(--ok); }
+  .badge.warn { background: rgba(178,106,0,.16); color: var(--warn); }
+  .badge.bad { background: rgba(192,57,43,.14); color: var(--bad); }
+  .badge.info { background: var(--accent-soft); color: var(--accent); }
+  details { border: 1px solid var(--line); border-radius: 10px; padding: 0 14px;
+    margin-bottom: 10px; background: var(--panel); }
+  details > summary { cursor: pointer; padding: 12px 0; font-weight: 550; list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before { content: "▸ "; color: var(--muted); }
+  details[open] > summary::before { content: "▾ "; }
+  .body { padding: 4px 0 16px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+  .body img { max-width: 100%; height: auto; }
+  .body table { border-collapse: collapse; max-width: 100%; }
+  .body td, .body th { border: 1px solid var(--line); padding: 4px 8px; }
+  .pill { display: inline-block; font-size: 12px; color: var(--muted);
+    background: var(--chip); border-radius: 6px; padding: 1px 7px; margin: 0 6px 6px 0; }
+  .empty { color: var(--muted); font-style: italic; padding: 20px 0; }
+  .moditem { padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 14px; }
+  .moditem:last-child { border-bottom: 0; }
+  .moditem .ty { color: var(--muted); font-size: 12px; margin-right: 8px; }
+  hr.sep { border: 0; border-top: 1px solid var(--line); margin: 26px 0 18px; }
+  .section-h { font-size: 13px; text-transform: uppercase; letter-spacing: .6px;
+    color: var(--muted); margin: 22px 0 10px; }
+  @media (max-width: 720px) {
+    .app { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    main { padding: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h1>Canvas-arkisto</h1>
+    <div class="sub" id="whoami"></div>
+    <input class="search" id="search" placeholder="Suodata kursseja…" autocomplete="off">
+    <nav id="nav"></nav>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<script id="data" type="application/json" nonce="__CSP_NONCE__">__CANVAS_DATA__</script>
+<script nonce="__CSP_NONCE__">
+"use strict";
+const DATA = JSON.parse(document.getElementById("data").textContent);
+
+// Defense-in-depth alongside the CSP: strip active content from any embedded
+// Canvas HTML before it is inserted via innerHTML. Removes script/frame/embed
+// elements, on* event handlers, javascript: URLs and srcdoc. The CSP already
+// blocks execution; this makes the DOM clean regardless of CSP enforcement.
+function sanitizeHTML(html) {
+  const tpl = document.createElement("template");
+  tpl.innerHTML = String(html == null ? "" : html);
+  tpl.content.querySelectorAll("script,iframe,object,embed,link,meta,base,form,frame,frameset,noscript").forEach((n) => n.remove());
+  const walker = document.createTreeWalker(tpl.content, NodeFilter.SHOW_ELEMENT);
+  const nodes = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n);
+  for (const e of nodes) {
+    for (const attr of [...e.attributes]) {
+      const name = attr.name.toLowerCase();
+      const val = attr.value;
+      if (name.startsWith("on")) e.removeAttribute(attr.name);
+      else if (name === "srcdoc") e.removeAttribute(attr.name);
+      else if ((name === "href" || name === "src" || name === "xlink:href" || name === "action" || name === "formaction" || name === "data" || name === "poster") && /^\s*(javascript|data|vbscript):/i.test(val)) e.removeAttribute(attr.name);
+      else if (name === "style" && /expression\s*\(|url\s*\(\s*['"]?\s*(javascript|vbscript):/i.test(val)) e.removeAttribute(attr.name);
+    }
+    // Links open in a new tab; make sure they can't reach back via window.opener.
+    if (e.tagName === "A" && e.getAttribute("target") === "_blank") e.setAttribute("rel", "noopener noreferrer");
+  }
+  return tpl.innerHTML;
+}
+
+// ---------- helpers ----------
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k === "html") n.innerHTML = sanitizeHTML(v);
+    else if (k.startsWith("on") && typeof v === "function") n.addEventListener(k.slice(2), v);
+    else if (v != null) n.setAttribute(k, v);
+  }
+  if (n.tagName === "A" && attrs.target === "_blank") n.setAttribute("rel", "noopener noreferrer");
+  for (const kid of kids) if (kid != null) n.append(kid.nodeType ? kid : document.createTextNode(kid));
+  return n;
+};
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = (iso) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d)) return null;
+  return d.toLocaleString(undefined, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+};
+const fmtDay = (iso) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d)) return null;
+  return d.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" });
+};
+const courseName = (c) => {
+  const name = (c.course && (c.course.name || c.course.course_code)) || "Kurssi";
+  const code = c.course && c.course.course_code;
+  return code && name.endsWith(code) ? name.slice(0, -code.length).trim() || name : name;
+};
+const now = Date.now();
+
+// Derive a status badge for an assignment from its submission + due date.
+function assignmentStatus(a) {
+  const s = a.submission || {};
+  const noSubmit = Array.isArray(a.submission_types) && a.submission_types.length === 1 && a.submission_types[0] === "none";
+  if (s.workflow_state === "graded" || s.grade != null)
+    return { cls: "ok", label: "Arvioitu" + (s.grade != null ? " · " + s.grade : "") };
+  if (s.workflow_state === "submitted" || s.workflow_state === "pending_review" || s.submitted_at)
+    return { cls: "info", label: "Palautettu" };
+  if (noSubmit) return { cls: "", label: "Ei palautusta" };
+  if (a.due_at && new Date(a.due_at).getTime() < now) return { cls: "bad", label: "Myöhässä" };
+  if (a.due_at) return { cls: "warn", label: "Avoin" };
+  return { cls: "", label: "Ei määräpäivää" };
+}
+
+// ---------- view registry ----------
+let current = null;
+const routes = {};
+
+function setActive(id) {
+  document.querySelectorAll("nav a").forEach((a) => a.classList.toggle("active", a.dataset.route === id));
+}
+function go(id) {
+  const r = routes[id];
+  if (!r) return;
+  current = id;
+  setActive(id);
+  const main = document.getElementById("main");
+  main.innerHTML = "";
+  main.append(freshnessBar());
+  r.render(main);
+  window.scrollTo(0, 0);
+}
+
+function freshnessBar() {
+  const t = new Date(DATA.generatedAt);
+  const ageH = (now - t.getTime()) / 3.6e6;
+  const color = ageH > 26 ? "var(--bad)" : ageH > 3 ? "var(--warn)" : "var(--ok)";
+  return el("div", { class: "freshness" },
+    el("span", { class: "dot", style: "background:" + color }),
+    "Haettu " + (fmt(DATA.generatedAt) || "?") + " · lähde: " + esc(DATA.baseUrl) +
+    (DATA.shallow ? " · suppea haku (--shallow)" : ""));
+}
+
+// ---------- overview ----------
+routes.overview = {
+  title: "Yleiskatsaus", section: "yleista",
+  render(main) {
+    main.append(el("h2", { class: "view-title" }, "Yleiskatsaus"));
+    const p = DATA.profile || {};
+    main.append(el("p", { class: "view-sub" }, (p.name ? p.name + " · " : "") + (p.primary_email || p.login_id || "")));
+
+    let assignTotal = 0, overdue = 0, upcoming = 0, graded = 0;
+    const upcomingList = [];
+    for (const c of DATA.courses) {
+      for (const a of c.assignments || []) {
+        assignTotal++;
+        const st = assignmentStatus(a);
+        if (st.label === "Myöhässä") overdue++;
+        if (st.cls === "ok") graded++;
+        if (a.due_at && new Date(a.due_at).getTime() >= now && st.label !== "Palautettu" && st.cls !== "ok") {
+          upcoming++;
+          upcomingList.push({ a, c });
+        }
+      }
+    }
+    const stats = [
+      [DATA.courses.length, "kurssia"],
+      [assignTotal, "tehtävää"],
+      [upcoming, "tulossa"],
+      [overdue, "myöhässä"],
+      [graded, "arvioitu"],
+      [(DATA.announcements || []).length, "tiedotetta"],
+    ];
+    const cards = el("div", { class: "cards" });
+    for (const [n, l] of stats) cards.append(el("div", { class: "stat" }, el("div", { class: "n" }, String(n)), el("div", { class: "l" }, l)));
+    main.append(cards);
+
+    main.append(el("div", { class: "section-h" }, "Seuraavat määräpäivät"));
+    upcomingList.sort((x, y) => new Date(x.a.due_at) - new Date(y.a.due_at));
+    if (!upcomingList.length) main.append(el("div", { class: "empty" }, "Ei tulevia määräpäiviä."));
+    else {
+      const card = el("div", { class: "card" });
+      for (const { a, c } of upcomingList.slice(0, 15)) {
+        const st = assignmentStatus(a);
+        card.append(el("div", { class: "row" },
+          el("div", { class: "t" }, el("div", {}, a.html_url ? el("a", { href: a.html_url, target: "_blank" }, a.name) : a.name),
+            el("small", {}, courseName(c) + " · DL " + fmt(a.due_at))),
+          el("span", { class: "badge " + st.cls }, st.label)));
+      }
+      main.append(card);
+    }
+  },
+};
+
+// ---------- upcoming (all) ----------
+routes.upcoming = {
+  title: "Tulossa", section: "yleista",
+  render(main) {
+    main.append(el("h2", { class: "view-title" }, "Tulevat tehtävät"));
+    const list = [];
+    for (const c of DATA.courses) for (const a of c.assignments || []) {
+      if (a.due_at && new Date(a.due_at).getTime() >= now) list.push({ a, c });
+    }
+    list.sort((x, y) => new Date(x.a.due_at) - new Date(y.a.due_at));
+    main.append(el("p", { class: "view-sub" }, list.length + " tehtävää määräpäivä edessä"));
+    if (!list.length) { main.append(el("div", { class: "empty" }, "Ei tulevia tehtäviä.")); return; }
+    const card = el("div", { class: "card" });
+    for (const { a, c } of list) {
+      const st = assignmentStatus(a);
+      card.append(el("div", { class: "row" },
+        el("div", { class: "t" }, el("div", {}, a.html_url ? el("a", { href: a.html_url, target: "_blank" }, a.name) : a.name),
+          el("small", {}, courseName(c) + " · DL " + fmt(a.due_at) + (a.points_possible != null ? " · " + a.points_possible + " p" : ""))),
+        el("span", { class: "badge " + st.cls }, st.label)));
+    }
+    main.append(card);
+  },
+};
+
+// ---------- announcements ----------
+routes.announcements = {
+  title: "Tiedotteet", section: "yleista",
+  render(main) {
+    main.append(el("h2", { class: "view-title" }, "Tiedotteet"));
+    const list = (DATA.announcements || []).slice().sort((a, b) => new Date(b.posted_at || 0) - new Date(a.posted_at || 0));
+    main.append(el("p", { class: "view-sub" }, list.length + " tiedotetta"));
+    if (!list.length) { main.append(el("div", { class: "empty" }, "Ei tiedotteita.")); return; }
+    for (const a of list) {
+      const d = el("details");
+      d.append(el("summary", {}, (fmtDay(a.posted_at) ? fmtDay(a.posted_at) + " · " : "") + (a.title || "(nimetön)")));
+      const body = el("div", { class: "body" });
+      body.innerHTML = sanitizeHTML(a.message || "<em>Ei sisältöä.</em>");
+      if (a.html_url) body.append(el("p", {}, el("a", { href: a.html_url, target: "_blank" }, "Avaa Canvasissa →")));
+      d.append(body);
+      main.append(d);
+    }
+  },
+};
+
+// ---------- conversations ----------
+routes.conversations = {
+  title: "Viestit", section: "yleista",
+  render(main) {
+    main.append(el("h2", { class: "view-title" }, "Viestit (Inbox)"));
+    const list = DATA.conversations || [];
+    main.append(el("p", { class: "view-sub" }, list.length + " keskustelua"));
+    if (!list.length) { main.append(el("div", { class: "empty" }, "Ei viestejä.")); return; }
+    for (const c of list) {
+      const d = el("details");
+      d.append(el("summary", {}, (fmtDay(c.last_message_at) ? fmtDay(c.last_message_at) + " · " : "") + (c.subject || "(ei aihetta)")));
+      const body = el("div", { class: "body" });
+      for (const m of (c.messages || [])) {
+        body.append(el("div", { class: "row" },
+          el("div", { class: "t" }, el("small", {}, fmt(m.created_at) || ""),
+            el("div", { html: (m.body || "").replace(/\n/g, "<br>") }))));
+      }
+      d.append(body);
+      main.append(d);
+    }
+  },
+};
+
+// ---------- files ----------
+routes.files = {
+  title: "Tiedostot", section: "yleista",
+  render(main) {
+    main.append(el("h2", { class: "view-title" }, "Omat tiedostot"));
+    const files = (DATA.account && DATA.account.files) || [];
+    main.append(el("p", { class: "view-sub" }, files.length + " tiedostoa käyttäjän kansiossa"));
+    const card = el("div", { class: "card" });
+    if (!files.length) card.append(el("div", { class: "empty" }, "Ei tiedostoja."));
+    for (const f of files) {
+      card.append(el("div", { class: "row" },
+        el("div", { class: "t" }, f.url ? el("a", { href: f.url, target: "_blank" }, f.display_name || f.filename) : (f.display_name || f.filename),
+          el("small", {}, " · " + (f["content-type"] || "") + (f.size ? " · " + Math.round(f.size / 1024) + " kB" : ""))),
+        el("span", { class: "badge" }, fmtDay(f.updated_at) || "")));
+    }
+    main.append(card);
+  },
+};
+
+// ---------- course detail ----------
+function courseRoute(c) {
+  return {
+    title: courseName(c), section: "kurssit", course: c,
+    render(main) {
+      main.append(el("h2", { class: "view-title" }, courseName(c)));
+      const cc = c.course || {};
+      main.append(el("p", { class: "view-sub" },
+        [cc.course_code, cc.term && cc.term.name, c._enrollmentState].filter(Boolean).join(" · ")));
+
+      const teachers = (c.teachers || []).map((t) => t.name).filter(Boolean);
+      if (teachers.length) {
+        const p = el("div", {});
+        p.append(el("span", { class: "section-h", style: "margin:0 8px 0 0" }, "Opettajat"));
+        teachers.forEach((t) => p.append(el("span", { class: "pill" }, t)));
+        main.append(p);
+      }
+      if (cc.link || cc.id) main.append(el("p", {}, el("a", { href: DATA.baseUrl + "/courses/" + cc.id, target: "_blank" }, "Avaa kurssi Canvasissa →")));
+
+      // Assignments
+      main.append(el("div", { class: "section-h" }, "Tehtävät (" + ((c.assignments || []).length) + ")"));
+      const acard = el("div", { class: "card" });
+      const asg = (c.assignments || []).slice().sort((a, b) => new Date(a.due_at || "2999") - new Date(b.due_at || "2999"));
+      if (!asg.length) acard.append(el("div", { class: "empty" }, "Ei tehtäviä."));
+      for (const a of asg) {
+        const st = assignmentStatus(a);
+        acard.append(el("div", { class: "row" },
+          el("div", { class: "t" }, el("div", {}, a.html_url ? el("a", { href: a.html_url, target: "_blank" }, a.name) : a.name),
+            el("small", {}, (a.due_at ? "DL " + fmt(a.due_at) : "ei määräpäivää") + (a.points_possible != null ? " · " + a.points_possible + " p" : ""))),
+          el("span", { class: "badge " + st.cls }, st.label)));
+      }
+      main.append(acard);
+
+      // Syllabus
+      if (cc.syllabus_body) {
+        main.append(el("div", { class: "section-h" }, "Kurssikuvaus"));
+        const d = el("details"); d.append(el("summary", {}, "Syllabus"));
+        const b = el("div", { class: "body" }); b.innerHTML = sanitizeHTML(cc.syllabus_body); d.append(b);
+        main.append(d);
+      }
+
+      // Modules
+      if ((c.modules || []).length) {
+        main.append(el("div", { class: "section-h" }, "Moduulit (" + c.modules.length + ")"));
+        for (const m of c.modules) {
+          const d = el("details");
+          d.append(el("summary", {}, (m.name || "Moduuli") + "  (" + ((m.items || []).length) + ")"));
+          const body = el("div", { class: "body" });
+          for (const it of m.items || []) {
+            body.append(el("div", { class: "moditem" },
+              el("span", { class: "ty" }, it.type || ""),
+              it.html_url ? el("a", { href: it.html_url, target: "_blank" }, it.title) : (it.title || "")));
+          }
+          d.append(body);
+          main.append(d);
+        }
+      }
+
+      // Pages with bodies
+      if ((c.pageBodies || []).length) {
+        main.append(el("div", { class: "section-h" }, "Sivut (" + c.pageBodies.length + ")"));
+        for (const p of c.pageBodies) {
+          const d = el("details");
+          d.append(el("summary", {}, p.title || p.url));
+          const b = el("div", { class: "body" });
+          b.innerHTML = sanitizeHTML(p.body || "<em>Tyhjä sivu.</em>");
+          if (p.html_url) b.append(el("p", {}, el("a", { href: p.html_url, target: "_blank" }, "Avaa Canvasissa →")));
+          d.append(b);
+          main.append(d);
+        }
+      }
+
+      // Discussions
+      if ((c.discussions || []).length) {
+        main.append(el("div", { class: "section-h" }, "Keskustelut (" + c.discussions.length + ")"));
+        for (const k of c.discussions) {
+          const d = el("details");
+          d.append(el("summary", {}, (k.title || "(nimetön)") + "  (" + (k.discussion_subentry_count || 0) + " viestiä)"));
+          const b = el("div", { class: "body" });
+          if (k.message) b.innerHTML = sanitizeHTML(k.message);
+          for (const e of (c.discussionEntries && c.discussionEntries[k.id]) || []) {
+            b.append(el("div", { class: "row" }, el("div", { class: "t" },
+              el("small", {}, (e.user_name || "") + " · " + (fmt(e.created_at) || "")),
+              el("div", { html: e.message || "" }))));
+          }
+          if (k.html_url) b.append(el("p", {}, el("a", { href: k.html_url, target: "_blank" }, "Avaa Canvasissa →")));
+          d.append(b);
+          main.append(d);
+        }
+      }
+
+      // Files
+      if ((c.files || []).length) {
+        main.append(el("div", { class: "section-h" }, "Kurssin tiedostot (" + c.files.length + ")"));
+        const fc = el("div", { class: "card" });
+        for (const f of c.files) {
+          fc.append(el("div", { class: "row" },
+            el("div", { class: "t" }, f.url ? el("a", { href: f.url, target: "_blank" }, f.display_name || f.filename) : (f.display_name || f.filename)),
+            el("span", { class: "badge" }, f.size ? Math.round(f.size / 1024) + " kB" : "")));
+        }
+        main.append(fc);
+      }
+
+      // Quizzes
+      if ((c.quizzes || []).length) {
+        main.append(el("div", { class: "section-h" }, "Tentit (" + c.quizzes.length + ")"));
+        const qc = el("div", { class: "card" });
+        for (const q of c.quizzes) {
+          qc.append(el("div", { class: "row" },
+            el("div", { class: "t" }, q.html_url ? el("a", { href: q.html_url, target: "_blank" }, q.title) : q.title,
+              el("small", {}, q.due_at ? " · DL " + fmt(q.due_at) : "")),
+            el("span", { class: "badge" }, (q.question_count != null ? q.question_count + " kys." : ""))));
+        }
+        main.append(qc);
+      }
+    },
+  };
+}
+
+// ---------- build nav ----------
+const courseRoutes = [];
+DATA.courses
+  .slice()
+  .sort((a, b) => courseName(a).localeCompare(courseName(b)))
+  .forEach((c, i) => {
+    const id = "course-" + (c.course ? c.course.id : i);
+    routes[id] = courseRoute(c);
+    courseRoutes.push(id);
+  });
+
+function renderNav(filter = "") {
+  const nav = document.getElementById("nav");
+  nav.innerHTML = "";
+  const f = filter.trim().toLowerCase();
+
+  const general = [
+    ["overview", "Yleiskatsaus"],
+    ["upcoming", "Tulossa"],
+    ["announcements", "Tiedotteet"],
+    ["conversations", "Viestit"],
+    ["files", "Tiedostot"],
+  ];
+  if (!f) {
+    nav.append(el("div", { class: "group" }, "Yleistä"));
+    for (const [id, label] of general) {
+      let count = null;
+      if (id === "upcoming") count = DATA.courses.reduce((n, c) => n + (c.assignments || []).filter((a) => a.due_at && new Date(a.due_at).getTime() >= now).length, 0);
+      if (id === "announcements") count = (DATA.announcements || []).length;
+      if (id === "conversations") count = (DATA.conversations || []).length;
+      if (id === "files") count = ((DATA.account && DATA.account.files) || []).length;
+      nav.append(el("a", { "data-route": id, onclick: () => go(id) },
+        el("span", {}, label), count != null ? el("span", { class: "count" }, String(count)) : null));
+    }
+  }
+
+  nav.append(el("div", { class: "group" }, "Kurssit"));
+  const shown = courseRoutes.filter((id) => !f || courseName(routes[id].course).toLowerCase().includes(f) ||
+    ((routes[id].course.course || {}).course_code || "").toLowerCase().includes(f));
+  if (!shown.length) nav.append(el("div", { class: "empty", style: "padding:6px 10px" }, "Ei osumia."));
+  for (const id of shown) {
+    const c = routes[id].course;
+    const n = (c.assignments || []).length;
+    nav.append(el("a", { "data-route": id, onclick: () => go(id) },
+      el("span", {}, courseName(c)), el("span", { class: "count" }, String(n))));
+  }
+  setActive(current);
+}
+
+// ---------- init ----------
+const p = DATA.profile || {};
+document.getElementById("whoami").textContent = [p.name, p.primary_email || p.login_id].filter(Boolean).join(" · ") || DATA.baseUrl;
+document.getElementById("search").addEventListener("input", (e) => renderNav(e.target.value));
+renderNav();
+go("overview");
+</script>
+</body>
+</html>

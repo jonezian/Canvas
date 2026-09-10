@@ -1,0 +1,15 @@
+{
+  "name": "canvas-arkisto",
+  "version": "1.0.0",
+  "description": "Hae kaikki oma Canvas LMS -datasi ja rakenna siitä itsenäinen, paikallinen websivu. Vain luku, ei riippuvuuksia.",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "bin": { "canvas-arkisto": "run.mjs" },
+  "scripts": {
+    "collect": "node collect.mjs",
+    "collect:shallow": "node collect.mjs --shallow",
+    "build": "node build.mjs",
+    "start": "node run.mjs"
+  },
+  "license": "MIT"
+}

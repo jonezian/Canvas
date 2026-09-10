@@ -1,0 +1,13 @@
+# Salaisuudet — EI KOSKAAN versionhallintaan
+.env
+.env.local
+
+# Haettu data ja valmis sivu (henkilökohtaista sisältöä)
+out/
+raw/
+
+# Roskaa
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
