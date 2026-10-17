@@ -8,7 +8,7 @@ ilman internetiä.
   `GET`-kutsuja, ja kirjoitus on estetty koodissa. Henkilökohtainen access token on
   täysi käyttöoikeus nimissäsi, joten esto on tärkeä: väärä kirjoitus (esim.
   ennenaikainen palautus) näkyisi opettajalle eikä sitä voi perua.
-- 📦 **Nolla riippuvuutta.** Pelkkä Node.js (18+). Ei `npm install`ia, ei ulkoisia
+- 📦 **Nolla riippuvuutta.** Pelkkä Node.js (20.11+). Ei `npm install`ia, ei ulkoisia
   kirjastoja.
 - 🌐 **Yleiskäyttöinen.** Toimii minkä tahansa oppilaitoksen Canvasilla
   (`*.instructure.com`, oppilaitoksen oma osoite, itse asennettu…). Toimii sekä opiskelijan
@@ -45,7 +45,7 @@ Tämän jälkeen avaa selaimessa **`out/index.html`** (tuplaklikkaus riittää).
 
 ### 1. Node.js
 
-Tarvitset **Node.js 18 tai uudemman** (natiivi `fetch` vaatii sen). Tarkista:
+Tarvitset **Node.js 20.11 tai uudemman** (skriptit käyttävät `import.meta.dirname`-ominaisuutta). Tarkista:
 
 ```bash
 node --version

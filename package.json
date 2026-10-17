@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Hae kaikki oma Canvas LMS -datasi ja rakenna siitä itsenäinen, paikallinen websivu. Vain luku, ei riippuvuuksia.",
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": { "node": ">=20.11" },
   "bin": { "canvas-arkisto": "run.mjs" },
   "scripts": {
     "collect": "node collect.mjs",
